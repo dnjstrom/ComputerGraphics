@@ -55,9 +55,9 @@ void initGL()
 	// Define the colors for each of the three vertices of the triangle
 	const float colors[] = {
 		//  R     G		B
-		1.0f, 1.0f, 1.0f,		// White
-		1.0f, 1.0f, 1.0f,		// White
-		1.0f, 1.0f, 1.0f		// White
+		1.0f, 0.0f, 0.0f,		// Red
+		0.0f, 1.0f, 0.0f,		// Green
+		0.0f, 0.0f, 1.0f		// Blue
 	};
 
 	// Create a handle for the position vertex buffer object
@@ -187,7 +187,9 @@ void initGL()
 
 void display(void)
 {
-	glClearColor(0.2,0.2,0.8,1.0);						// Set clear color
+	//glClearColor(0.2,0.2,0.8,1.0);						// Set clear color
+	glClearColor(0.2,0.2,0.2,1.0);						    // Set a less intensive clear color
+
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clears the color buffer and the z-buffer
 
 	int w = glutGet((GLenum)GLUT_WINDOW_WIDTH);
