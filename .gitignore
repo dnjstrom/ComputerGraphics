@@ -9,3 +9,4 @@
 *.idb
 *.pdb
 *Debug.lib
+Debug/*
