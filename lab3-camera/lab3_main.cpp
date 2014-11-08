@@ -106,7 +106,8 @@ void initGL()
 void display(void)
 {
 	// Set up
-	glClearColor(0.2,0.2,0.8,1.0);						// Set clear color
+	//glClearColor(0.2,0.2,0.8,1.0);						// Set clear color
+	glClearColor(0.2, 0.2, 0.2, 1.0);						// Set nicer clear color
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clears the color buffer and the z-buffer
 	glEnable(GL_DEPTH_TEST);							// enable Z-buffering 
 	glDisable(GL_CULL_FACE);							// disables not showing back faces of triangles 
