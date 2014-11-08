@@ -4,11 +4,13 @@
 precision highp float;
 
 in vec3 outColor;
-
+in vec2 texCoord;
 
 out vec4 fragmentColor;
 
+uniform sampler2D colortexture;
+
 void main() 
 {
-	fragmentColor = vec4(outColor, 1.0); 
+	fragmentColor = texture2D(colortexture, texCoord.xy);
 }

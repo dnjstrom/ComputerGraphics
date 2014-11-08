@@ -139,6 +139,9 @@
     <None Include="simple.frag" />
     <None Include="simple.vert" />
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="answers.md" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

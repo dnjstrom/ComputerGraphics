@@ -23,40 +23,46 @@ GLuint shaderProgram;
 
 // The vertexArrayObject here will hold the pointers to 
 // the vertex data (in positionBuffer) and color data per vertex (in colorBuffer)
-GLuint		positionBuffer, colorBuffer, indexBuffer, vertexArrayObject;						
+GLuint positionBuffer, colorBuffer, indexBuffer, texcoordBuffer, vertexArrayObject;
+
+// Explosion array objects and buffers
+GLuint ePositionBuffer, eIndexBuffer, eTexcoordBuffer, eVertexArrayObject;
+
+// Texture variables
+GLuint texture, eTexture;
 
 
 
 void initGL()
 {
 	/* Initialize GLEW; this gives us access to OpenGL Extensions.
-	 */
-	glewInit();  
+	*/
+	glewInit();
 
-	/* Print information about OpenGL and ensure that we've got at a context 
-	 * that supports least OpenGL 3.0. Then setup the OpenGL Debug message
-	 * mechanism.
-	 */
+	/* Print information about OpenGL and ensure that we've got at a context
+	* that supports least OpenGL 3.0. Then setup the OpenGL Debug message
+	* mechanism.
+	*/
 	startupGLDiagnostics();
 	setupGLDebugMessages();
 
 	/* Initialize DevIL, the image library that we use to load textures. Also
-	 * tell IL that we intent to use it with OpenGL.
-	 */
+	* tell IL that we intent to use it with OpenGL.
+	*/
 	ilInit();
 	ilutRenderer(ILUT_OPENGL);
 
 	/* Workaround for AMD. It might no longer be necessary, but I dunno if we
-	 * are ever going to remove it. (Consider it a piece of living history.)
-	 */
-	if( !glBindFragDataLocation )
+	* are ever going to remove it. (Consider it a piece of living history.)
+	*/
+	if (!glBindFragDataLocation)
 	{
 		glBindFragDataLocation = glBindFragDataLocationEXT;
 	}
 
-	/* As a general rule, you shouldn't need to change anything before this 
-	 * comment in initGL().
-	 */
+	/* As a general rule, you shouldn't need to change anything before this
+	* comment in initGL().
+	*/
 
 	///////////////////////////////////////////////////////////////////////////
 	// Create the floor quad
@@ -64,10 +70,35 @@ void initGL()
 	// Vertex positions
 	const float positions[] = {
 		// X Y Z
-		-10.0f,   -10.0f, -30.0f,    // v0
-		-10.0f,   -10.0f, -330.0f,   // v1
-		 10.0f,   -10.0f, -330.0f,   // v2
-		 10.0f,   -10.0f, -30.0f     // v3
+		-10.0f, -10.0f, -30.0f,    // v0
+		-10.0f, -10.0f, -330.0f,   // v1
+		10.0f, -10.0f, -330.0f,   // v2
+		10.0f, -10.0f, -30.0f     // v3
+	};
+
+	const float ePositions[] = {
+		// X Y Z
+		-7.0f, -7.0f, -50.0f,    // v0
+		-7.0f, 7.0f, -50.0f,   // v1
+		7.0f, 7.0f, -50.0f,   // v2
+		7.0f, -7.0f, -50.0f     // v3
+	};
+
+	// Texture coordinates
+	const float texcoords[] = {
+		// X   Y
+		0.0f, 0.0f,   // v0
+		0.0f, 15.0f,   // v1
+		1.0f, 15.0f,   // v2
+		1.0f, 0.0f,   // v3
+	};
+
+	const float eTexcoords[] = {
+		// X   Y
+		0.0f, 0.0f,   // v0
+		0.0f, 1.0f,   // v1
+		1.0f, 1.0f,   // v2
+		1.0f, 0.0f,   // v3
 	};
 
 	// Vertex colors
@@ -79,58 +110,110 @@ void initGL()
 		1.0f, 1.0f, 1.0f		// White
 	};
 
-
 	const int indices[] = {
-		0,1,3, // Triangle 1
-		1,2,3  // Triangle 2
+		0, 1, 3, // Triangle 1
+		1, 2, 3  // Triangle 2
 	};
 
 	// Create the buffer objects
-	glGenBuffers( 1, &positionBuffer );															// Create a handle for the vertex position buffer
-	glBindBuffer( GL_ARRAY_BUFFER, positionBuffer );											// Set the newly created buffer as the current one
-	glBufferData( GL_ARRAY_BUFFER, sizeof(positions), positions, GL_STATIC_DRAW );			// Send the vetex position data to the current buffer
+	glGenBuffers(1, &positionBuffer);															// Create a handle for the vertex position buffer
+	glBindBuffer(GL_ARRAY_BUFFER, positionBuffer);											// Set the newly created buffer as the current one
+	glBufferData(GL_ARRAY_BUFFER, sizeof(positions), positions, GL_STATIC_DRAW);			// Send the vetex position data to the current buffer
 
-	glGenBuffers( 1, &colorBuffer );															// Create a handle for the vertex color buffer
-	glBindBuffer( GL_ARRAY_BUFFER, colorBuffer );										// Set the newly created buffer as the current one
-	glBufferData( GL_ARRAY_BUFFER, sizeof(colors), colors, GL_STATIC_DRAW );			// Send the color data to the current buffer
+	glGenBuffers(1, &colorBuffer);															// Create a handle for the vertex color buffer
+	glBindBuffer(GL_ARRAY_BUFFER, colorBuffer);										// Set the newly created buffer as the current one
+	glBufferData(GL_ARRAY_BUFFER, sizeof(colors), colors, GL_STATIC_DRAW);			// Send the color data to the current buffer
 
+	glGenBuffers(1, &texcoordBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, texcoordBuffer);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(texcoords), texcoords, GL_STATIC_DRAW);
 
-	glGenBuffers( 1, &indexBuffer );
-	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, indexBuffer );										
-	glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW );			
+	glGenBuffers(1, &indexBuffer);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+	// Create explosion buffers
+	glGenBuffers(1, &ePositionBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, ePositionBuffer);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(ePositions), ePositions, GL_STATIC_DRAW);
+
+	glGenBuffers(1, &eTexcoordBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, eTexcoordBuffer);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(eTexcoords), eTexcoords, GL_STATIC_DRAW);
+
 
 	// Create the vertex array object
 	glGenVertexArrays(1, &vertexArrayObject);
 	glBindVertexArray(vertexArrayObject);
 
-	glBindBuffer( GL_ARRAY_BUFFER, positionBuffer );	
-	glVertexAttribPointer(0, 3, GL_FLOAT, false/*normalized*/, 0/*stride*/, 0/*offset*/ );	
-	glBindBuffer( GL_ARRAY_BUFFER, colorBuffer );
-	glVertexAttribPointer(1, 3, GL_FLOAT, false/*normalized*/, 0/*stride*/, 0/*offset*/ );
-	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, indexBuffer );
+	glBindBuffer(GL_ARRAY_BUFFER, positionBuffer);
+	glVertexAttribPointer(0, 3, GL_FLOAT, false/*normalized*/, 0/*stride*/, 0/*offset*/);
+
+	glBindBuffer(GL_ARRAY_BUFFER, colorBuffer);
+	glVertexAttribPointer(1, 3, GL_FLOAT, false/*normalized*/, 0/*stride*/, 0/*offset*/);
+
+	glBindBuffer(GL_ARRAY_BUFFER, texcoordBuffer);
+	glVertexAttribPointer(2, 2, GL_FLOAT, false, 0, 0);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
+
 	glEnableVertexAttribArray(0);
 	glEnableVertexAttribArray(1);
+	glEnableVertexAttribArray(2);
+
+	// Create the explosions vertex array object
+	glGenVertexArrays(1, &eVertexArrayObject);
+	glBindVertexArray(eVertexArrayObject);
+
+	glBindBuffer(GL_ARRAY_BUFFER, ePositionBuffer);
+	glVertexAttribPointer(0, 3, GL_FLOAT, false/*normalized*/, 0/*stride*/, 0/*offset*/);
+
+	glBindBuffer(GL_ARRAY_BUFFER, eTexcoordBuffer);
+	glVertexAttribPointer(2, 2, GL_FLOAT, false, 0, 0);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
+
+	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(2);
 
 
 	// The loadShaderProgram and linkShaderProgam functions are defined in glutil.cpp and 
 	// do exactly what we did in lab1 but are hidden for convenience
-	shaderProgram = loadShaderProgram("simple.vert", "simple.frag"); 
-	glBindAttribLocation(shaderProgram, 0, "position"); 	
+	shaderProgram = loadShaderProgram("simple.vert", "simple.frag");
+	glBindAttribLocation(shaderProgram, 0, "position");
 	glBindAttribLocation(shaderProgram, 1, "color");
+	glBindAttribLocation(shaderProgram, 2, "texCoordIn");
 	glBindFragDataLocation(shaderProgram, 0, "fragmentColor");
-	linkShaderProgram(shaderProgram); 
+	linkShaderProgram(shaderProgram);
 	//**********************************************
 
 	//************************************
 	//			Load Texture
 	//************************************
 
+	texture = ilutGLLoadImage("floor.jpg");
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, texture);
+	// Indicates that the active texture should be repeated,
+	// instead of for instance clamped, for texture coordinates >1 or <0.
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
+	glGenerateMipmap(GL_TEXTURE_2D);
+	// Sets the type of filtering to be used on magnifying and
+	// minifying the active texture. These are the nicest available options.
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, 16.0f);
+
+	//// Explosion texture
+	eTexture = ilutGLLoadImage("explosion.png");
 }
 
 void display(void)
 {
-	glClearColor(0.2,0.2,0.8,1.0);						// Set clear color
+	//glClearColor(0.2,0.2,0.8,1.0);						// Set clear color
+	glClearColor(0.2, 0.2, 0.2, 1.0);						// Set nicer clear color
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clears the color buffer and the z-buffer
 
 	int w = glutGet((GLenum)GLUT_WINDOW_WIDTH);
@@ -143,20 +226,35 @@ void display(void)
 	// Disable depth testing
 	glDisable(GL_DEPTH_TEST);
 	// Shader Program
-	glUseProgram( shaderProgram );				// Set the shader program to use for this draw call
+	glUseProgram(shaderProgram);				// Set the shader program to use for this draw call
 
 	// Set up a projection matrix
-	float4x4 projectionMatrix = perspectiveMatrix(45.0f, float(w)/float(h), 0.01f, 300.0f); 
+	float4x4 projectionMatrix = perspectiveMatrix(45.0f, float(w) / float(h), 0.01f, 300.0f);
 	// Send it to the vertex shader
 	int loc = glGetUniformLocation(shaderProgram, "projectionMatrix");
 	glUniformMatrix4fv(loc, 1, false, &projectionMatrix.c1.x);
 
+	int texLoc = glGetUniformLocation(shaderProgram, "colortexture");
 
+	// Enable blending / transparency
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	// Draw floor
 	glBindVertexArray(vertexArrayObject);
+	glActiveTexture(GL_TEXTURE0);
+	glUniform1i(texLoc, 0);
+	glBindTexture(GL_TEXTURE_2D, texture);
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
+	// Draw explosion
+	glBindVertexArray(eVertexArrayObject);
+	glActiveTexture(GL_TEXTURE1);
+	glUniform1i(texLoc, 1);
+	glBindTexture(GL_TEXTURE_2D, eTexture);
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
-	glUseProgram( 0 ); // "unsets" the current shader program. Not really necessary.
+	glUseProgram(0); // "unsets" the current shader program. Not really necessary.
 
 	glutSwapBuffers(); // swap front and back buffer. This frame will now be displayed.
 	CHECK_GL_ERROR();
@@ -164,14 +262,14 @@ void display(void)
 
 void handleKeys(unsigned char key, int /*x*/, int /*y*/)
 {
-	switch( key )
+	switch (key)
 	{
 		// Key 27 => Escape. 
-		case 27:
-		{
-			exit( 0 );
-			break;
-		}
+	case 27:
+	{
+		exit(0);
+		break;
+	}
 	}
 }
 
@@ -184,37 +282,37 @@ int main(int argc, char *argv[])
 	glutInit(&argc, argv);
 
 	/* Request a double buffered window, with a RGB color buffer, and a depth
-	 * buffer. Also, request the initial window size to be 512 x 512.
-	 */
+	* buffer. Also, request the initial window size to be 512 x 512.
+	*/
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
-	glutInitWindowSize(512,512);
+	glutInitWindowSize(512, 512);
 
 	/* Require at least OpenGL 3.0. Also request a Debug Context, which allows
-	 * us to use the Debug Message API for a somewhat more humane debugging
-	 * experience.
-	 */
-	glutInitContextVersion(3,0);
+	* us to use the Debug Message API for a somewhat more humane debugging
+	* experience.
+	*/
+	glutInitContextVersion(3, 0);
 	glutInitContextFlags(GLUT_DEBUG);
 
 	/* Request window
-	 */
+	*/
 	glutCreateWindow("OpenGL Lab 2");
 
 	/* Set callbacks that respond to various events. For now, we only redraw
-	 * the window on demand (window resized, etc) and look for key presses
-	 * so that we can exit the program somewhat gracefully.
-	 */
+	* the window on demand (window resized, etc) and look for key presses
+	* so that we can exit the program somewhat gracefully.
+	*/
 	glutDisplayFunc(display);
 	glutKeyboardFunc(handleKeys); // standard key is pressed/released
 
-	/* Now that we should have a valid GL context, perform our OpenGL 
-	 * initialization, before we enter glutMainLoop().
-	 */
+	/* Now that we should have a valid GL context, perform our OpenGL
+	* initialization, before we enter glutMainLoop().
+	*/
 	initGL();
 
 	/* Start the main loop. Note: depending on your GLUT version, glutMainLoop()
-	 * may never return, but only exit via std::exit(0) or a similar method.
-	 */
+	* may never return, but only exit via std::exit(0) or a similar method.
+	*/
 	glutMainLoop();
-	return 0;          
+	return 0;
 }

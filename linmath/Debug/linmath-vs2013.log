@@ -1,5 +1,9 @@
-﻿Build started 2014-11-08 11:46:47.
+﻿Build started 11/8/2014 2:55:47 PM.
+     1>Project "S:\Kurser\Computer Graphics\ComputerGraphics\linmath\linmath-vs2013.vcxproj" on node 3 (Build target(s)).
+     1>Lib:
+         linmath-vs2013.vcxproj -> S:\Kurser\Computer Graphics\ComputerGraphics\\lib\linmath-vs2013_Debug.lib
+     1>Done Building Project "S:\Kurser\Computer Graphics\ComputerGraphics\linmath\linmath-vs2013.vcxproj" (Build target(s)).
 
 Build succeeded.
 
-Time Elapsed 00:00:00.01
+Time Elapsed 00:00:00.26

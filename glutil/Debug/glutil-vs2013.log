@@ -1,5 +1,9 @@
-﻿Build started 2014-11-08 11:46:47.
+﻿Build started 11/8/2014 2:55:46 PM.
+     1>Project "S:\Kurser\Computer Graphics\ComputerGraphics\glutil\glutil-vs2013.vcxproj" on node 2 (Build target(s)).
+     1>Lib:
+         glutil-vs2013.vcxproj -> S:\Kurser\Computer Graphics\ComputerGraphics\\lib\glutil-vs2013_Debug.lib
+     1>Done Building Project "S:\Kurser\Computer Graphics\ComputerGraphics\glutil\glutil-vs2013.vcxproj" (Build target(s)).
 
 Build succeeded.
 
-Time Elapsed 00:00:00.03
+Time Elapsed 00:00:00.24
