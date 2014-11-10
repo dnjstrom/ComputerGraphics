@@ -28,8 +28,20 @@ GLuint shaderProgram;
 
 float currentTime = 0.0f;
 
+float camera_theta = 0.0f;
+float camera_phi = M_PI / 2.0f;
+float camera_r = 20.0;
+
 bool trigSpecialEvent = false;
 bool paused = false;
+
+
+bool leftDown = false;
+bool middleDown = false;
+bool rightDown = false;
+
+int prev_x = 0;
+int prev_y = 0;
 
 
 Box *myBox; 
@@ -103,14 +115,17 @@ void initGL()
 	myBox = new Box(); 
 }
 
+float current_rotation = 0;
+float endAnimationAt = 0;
+
 void display(void)
 {
 	// Set up
 	//glClearColor(0.2,0.2,0.8,1.0);						// Set clear color
 	glClearColor(0.2, 0.2, 0.2, 1.0);						// Set nicer clear color
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clears the color buffer and the z-buffer
-	glEnable(GL_DEPTH_TEST);							// enable Z-buffering 
-	glDisable(GL_CULL_FACE);							// disables not showing back faces of triangles 
+	glEnable(GL_DEPTH_TEST);							// enable Z-buffering
+	glDisable(GL_CULL_FACE);							// disables not showing back faces of triangles
 	int w = glutGet((GLenum)GLUT_WINDOW_WIDTH);
 	int h = glutGet((GLenum)GLUT_WINDOW_HEIGHT);
 	glViewport(0, 0, w, h);								// Set viewport
@@ -118,15 +133,31 @@ void display(void)
 	// Set the shader program to use for this draw call
 	glUseProgram( shaderProgram );				
 
+	
+	if (trigSpecialEvent)
+	{
+		trigSpecialEvent = false;
+		endAnimationAt = currentTime + 3;
+	}
+
+
 	// Set up the matrices
-	// The model matrix can be used to move the object around in the world,
-	// currently we set it to identity.
-	float4x4 modelMatrix = make_identity<float4x4>();
+
 	// The view matrix defines where the viewer is looking
 	// currently we set it to identity.
-	float4x4 viewMatrix = make_identity<float4x4>();
+	float3 camera_position = sphericalToCartesian(camera_theta, camera_phi, camera_r);
+	float3 camera_lookAt = make_vector(0.0f, 0.0f, 0.0f);
+	float3 camera_up = make_vector(0.0f, 1.0f, 0.0f);
+	float4x4 viewMatrix = lookAt(camera_position, camera_lookAt, camera_up);
 
 	float4x4 projectionMatrix = perspectiveMatrix(45.0f, float(w) / float(h), 0.01f, 300.0f);
+
+	// Add to rotation if right mouse button is down.
+	if (rightDown || currentTime < endAnimationAt) {
+		current_rotation = (current_rotation + M_PI / 30);
+	}
+
+	float4x4 modelMatrix = make_rotation_y<float4x4>(current_rotation);
 
 	// Concatenate the three matrices and pass the final transform to the vertex shader
 	float4x4 modelViewProjectionMatrix = projectionMatrix * viewMatrix * modelMatrix;
@@ -136,6 +167,15 @@ void display(void)
 	// Draw the box
 	myBox->draw();
 
+	// Draw a second box
+	float4x4 r = make_rotation_y<float4x4>(currentTime*M_PI*0.5f);
+	float4x4 t = make_translation(make_vector(8.0f, 1.0f, 0.0f));
+	float4x4 s = make_scale<float4x4>(sin(currentTime * 5.0f) * make_vector(1.0f, 1.0f, 1.0f));
+	modelMatrix = r * t *s;
+	modelViewProjectionMatrix = projectionMatrix * viewMatrix * modelMatrix;
+	// Update the modelViewProjectionMatrix used in the vertex shader
+	glUniformMatrix4fv(loc, 1, false, &modelViewProjectionMatrix.c1.x);
+	myBox->draw();
 
 	glUseProgram( 0 );	
 
@@ -171,13 +211,6 @@ void handleSpecialKeys(int key, int /*x*/, int /*y*/)
 		break;
 	}
 }
-
-bool leftDown = false;
-bool middleDown = false;
-bool rightDown = false;
-
-int prev_x = 0;
-int prev_y = 0;
 
 void mouse(int button, int state, int x, int y)
 {
@@ -235,6 +268,7 @@ void mouse(int button, int state, int x, int y)
 	}
 }
 
+float prev_r = camera_r;
 
 void motion(int x, int y)
 {
@@ -242,6 +276,17 @@ void motion(int x, int y)
 	int delta_y = y - prev_y;
 
 	printf("Motion: %d %d\n", x, y);
+
+	if (leftDown)
+	{
+		camera_phi -= float(delta_y) * 0.3f * M_PI / 180.0f;
+		camera_phi = min(max(0.01f, camera_phi), M_PI - 0.01f);
+		camera_theta += float(delta_x) * 0.3f * M_PI / 180.0f;
+	}
+	else if (middleDown)
+	{
+		camera_r += 0.05 * delta_x; // Slow zoom motion
+	}
 
 	prev_x = x;
 	prev_y = y;
