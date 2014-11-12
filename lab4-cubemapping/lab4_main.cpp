@@ -23,11 +23,12 @@ using std::max;
 using namespace chag;
 
 GLuint shaderProgram;
-GLuint positionBuffer, texcoordBuffer, vertexArrayObject;						
+GLuint positionBuffer, texcoordBuffer, normalBuffer, vertexArrayObject;						
 
 GLuint texture, cubeMapTexture; 
 
 float currentTime = 0.0f;
+float deltaTime = 0.0f;
 
 bool trigSpecialEvent = false;
 bool paused = false;
@@ -42,6 +43,8 @@ float light_theta = 0.0f;
 float light_phi = M_PI/4.0f; 
 float light_r = 20.0; 
 
+// Object model
+OBJModel *fighterModel;
 
 // Helper function to turn spherical coordinates into cartesian (x,y,z)
 float3 sphericalToCartesian(const float &theta, const float &phi, const float &r)
@@ -91,11 +94,20 @@ void initGL()
 		5.0f,   5.0f, 0.0f,		// v2	-		| / |
 		5.0f,  -5.0f, 0.0f		// v3	-		v1	v3
 	};
+
 	float texcoords[] = {
 		0.0f, 1.0f, 		// (u,v) for v0	
 		0.0f, 0.0f,			// (u,v) for v1
 		1.0f, 1.0f,			// (u,v) for v2
 		1.0f, 0.0f			// (u,v) for v3
+	};
+
+	// Define the normals for each of the four points of the quad
+	float normals[] = {
+		0.0f, 0.0f, 1.0f,	// v0 - v0 v2
+		0.0f, 0.0f, 1.0f,	// v1 - | /|
+		0.0f, 0.0f, 1.0f,	// v2 - | / |
+		0.0f, 0.0f, 1.0f	// v3 - v1 v3
 	};
 
 
@@ -106,6 +118,10 @@ void initGL()
 	glGenBuffers( 1, &texcoordBuffer );
 	glBindBuffer( GL_ARRAY_BUFFER, texcoordBuffer );
 	glBufferData( GL_ARRAY_BUFFER, sizeof(texcoords), texcoords, GL_STATIC_DRAW );
+
+	glGenBuffers(1, &normalBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, normalBuffer);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(normals), normals, GL_STATIC_DRAW);
 
 
 	//******* Connect triangle data with the vertex array object *******
@@ -118,9 +134,12 @@ void initGL()
 	glBindBuffer( GL_ARRAY_BUFFER, texcoordBuffer );
 	glVertexAttribPointer(2, 2, GL_FLOAT, false/*normalized*/, 0/*stride*/, 0/*offset*/ );
 
+	glBindBuffer(GL_ARRAY_BUFFER, normalBuffer);
+	glVertexAttribPointer(1, 3, GL_FLOAT, false, 0, 0);
 
 	glEnableVertexAttribArray(0);
 	glEnableVertexAttribArray(2);
+	glEnableVertexAttribArray(1);
 
 	//************************************
 	//			Create Shaders
@@ -128,6 +147,7 @@ void initGL()
 	shaderProgram = loadShaderProgram("simple.vert", "simple.frag"); 
 	glBindAttribLocation(shaderProgram, 0, "position"); 	
 	glBindAttribLocation(shaderProgram, 2, "texCoordIn");
+	glBindAttribLocation(shaderProgram, 1, "normalIn");
 	glBindFragDataLocation(shaderProgram, 0, "fragmentColor");
 
 	linkShaderProgram(shaderProgram);
@@ -161,8 +181,11 @@ void initGL()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); 
 
-
-
+	//************************************
+	//			Load Model
+	//************************************
+	fighterModel = new OBJModel;
+	fighterModel->load("../scenes/fighter.obj");
 }
 
 void display(void)
@@ -190,6 +213,14 @@ void display(void)
 	float4x4 projectionMatrix = perspectiveMatrix(45.0f, float(w) / float(h), 0.01f, 300.0f);
 	// Concatenate the three matrices and pass the final transform to the vertex shader
 	setUniformSlow(shaderProgram, "modelViewProjectionMatrix", projectionMatrix * viewMatrix * modelMatrix);
+	setUniformSlow(shaderProgram, "modelViewMatrix", viewMatrix * modelMatrix);
+	setUniformSlow(shaderProgram, "normalMatrix", inverse(transpose(viewMatrix * modelMatrix)));
+
+	// Send view space light position to shader
+	float4 lightPosition = make_vector4(sphericalToCartesian(light_theta, light_phi, light_r), 1.0f);
+	float4 viewSpaceLightPosition = viewMatrix * lightPosition;
+	setUniformSlow(shaderProgram, "viewSpaceLightPosition", make_vector3(viewSpaceLightPosition));
+
 	// set light properties in shader.
 	setUniformSlow(shaderProgram, "scene_light", make_vector(0.9f, 0.8f, 0.8f));
 	setUniformSlow(shaderProgram, "scene_ambient_light", make_vector(0.2f, 0.2f, 0.2f));
@@ -199,8 +230,13 @@ void display(void)
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, texture);
 
-	glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );
+	//glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );
 
+	fighterModel->render();
+
+	// Update light position
+	light_theta += 0.4f * deltaTime * M_PI;
+	
 	// Draw the lights position
 	debugDrawLight(viewMatrix, projectionMatrix, sphericalToCartesian(light_theta, light_phi, light_r)); 
 
@@ -291,7 +327,7 @@ void motion(int x, int y)
 		camera_theta -= float(delta_x) * 0.3f * float(M_PI) / 180.0f;
 	}
 	prev_x = x;
-	prev_y = y;
+	prev_y = y; 
 }
 
 void idle( void )
@@ -304,7 +340,9 @@ void idle( void )
 	// update the global time if the application is not paused.
 	if (!paused)
 	{
+		float oldTime = currentTime;
 		currentTime = float(glutGet(GLUT_ELAPSED_TIME)) / 1000.0f - startTime;
+		deltaTime = currentTime - oldTime;
 	}
 
 	// Here is a good place to put application logic.

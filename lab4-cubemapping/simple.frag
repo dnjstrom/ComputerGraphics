@@ -11,7 +11,6 @@ uniform vec3 material_emissive_color = vec3(0.0);
 uniform int has_diffuse_texture = 1;
 uniform sampler2D diffuse_texture;
 
-
 in vec4 outColor;
 in vec2 texCoord;
 
@@ -19,23 +18,26 @@ uniform vec3 viewSpaceLightPosition;
 uniform vec3 scene_ambient_light = vec3(0.05, 0.05, 0.05);
 uniform vec3 scene_light = vec3(0.6, 0.6, 0.6);
 
-
 out vec4 fragmentColor;
 
+in vec3 viewSpaceNormal;
+in vec3 viewSpacePosition;
 
 vec3 calculateAmbient(vec3 ambientLight, vec3 materialAmbient)
 {
-	return vec3(0.0);// TODO #1: replace with ambient light calculations
+	return materialAmbient * ambientLight;
 }
 
 vec3 calculateDiffuse(vec3 diffuseLight, vec3 materialDiffuse, vec3 normal, vec3 directionToLight)
 {
-	return materialDiffuse; // TODO #2: replace with diffuse light calculations
+	return diffuseLight * materialDiffuse * max(0, dot(normal, directionToLight));
 }
 
 vec3 calculateSpecular(vec3 specularLight, vec3 materialSpecular, float materialShininess, vec3 normal, vec3 directionToLight, vec3 directionFromEye)
 {
-	return vec3(0.0); // TODO #3: insert specular calculations
+	vec3 h = normalize(directionToLight - directionFromEye);
+	float normalizationFactor = ((materialShininess + 2.0) / 8.0);
+	return normalizationFactor * specularLight * materialSpecular * pow(max(0, dot(h, normal)), materialShininess);
 }
 
 vec3 calculateFresnel(vec3 materialSpecular, vec3 normal, vec3 directionFromEye)
@@ -59,5 +61,19 @@ vec3 sampleDiffuseTexture()
 
 void main() 
 {
-	fragmentColor = vec4( texture( diffuse_texture, texCoord ).xyz, 1.0 );
+	vec3 ambient = material_diffuse_color * sampleDiffuseTexture();
+	vec3 diffuse = sampleDiffuseTexture() * material_diffuse_color;
+	vec3 specular = material_specular_color;
+	vec3 emissive = sampleDiffuseTexture() * material_emissive_color;
+
+	vec3 normal = normalize(viewSpaceNormal);
+	vec3 directionToLight = normalize(viewSpaceLightPosition - viewSpacePosition);
+	vec3 directionFromEye = normalize(viewSpacePosition);
+
+	vec3 shading = calculateAmbient(scene_ambient_light, ambient)
+				 + calculateDiffuse(scene_light, diffuse, normal, directionToLight)
+				 + calculateSpecular(scene_light, specular, material_shininess, normal, directionToLight, directionFromEye)
+				 + emissive;
+
+	fragmentColor = vec4(shading, 1.0);
 }
