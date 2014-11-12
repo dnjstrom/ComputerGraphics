@@ -160,6 +160,7 @@ void initGL()
 
 	// set the 0th texture unit to serve the 'diffuse_texture' sampler.
 	setUniformSlow(shaderProgram, "diffuse_texture", 0 );
+	setUniformSlow(shaderProgram, "environmentMap", 1);
 
 	//************************************
 	//			Load Texture
@@ -179,7 +180,11 @@ void initGL()
 	// Sets the type of mipmap interpolation to be used on magnifying and 
 	// minifying the active texture. These are the nicest available options.
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); 
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+
+	cubeMapTexture = loadCubeMap("cube0.png", "cube1.png",
+		"cube2.png", "cube3.png",
+		"cube4.png", "cube5.png");
 
 	//************************************
 	//			Load Model
@@ -224,11 +229,14 @@ void display(void)
 	// set light properties in shader.
 	setUniformSlow(shaderProgram, "scene_light", make_vector(0.9f, 0.8f, 0.8f));
 	setUniformSlow(shaderProgram, "scene_ambient_light", make_vector(0.2f, 0.2f, 0.2f));
+	setUniformSlow(shaderProgram, "inverseViewNormalMatrix", transpose(viewMatrix));
 
 	glBindVertexArray(vertexArrayObject);
 
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, texture);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, cubeMapTexture);
 
 	//glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );
 
