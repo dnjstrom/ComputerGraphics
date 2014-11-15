@@ -38,6 +38,7 @@ float camera_theta = M_PI / 4.0f;
 float camera_phi = M_PI / 4.0f; 
 float camera_r = 17.0; 
 
+
 float3 sphericalToCartesian(float theta, float phi, float r)
 {
 	return make_vector( r * sinf(theta)*sinf(phi),
@@ -68,7 +69,8 @@ void drawSecurityScreenQuad();
 void drawFullScreenQuad();
 
 
-
+GLuint texFrameBuffer, texFrameBuffer2, frameBuffer, depthBuffer;
+GLuint texPostProcess, postProcessFrameBuffer, depthPostProcess;
 
 
 
@@ -143,6 +145,73 @@ void initGL()
 	int w = glutGet( (GLenum)GLUT_WINDOW_WIDTH );
 	int h = glutGet( (GLenum)GLUT_WINDOW_HEIGHT );
 
+	// Create a texture for the frame buffer, with specified filtering,
+	// rgba-format and size
+	//glGenTextures(1, &texFrameBuffer);
+	texFrameBuffer = ilutGLLoadImage("tvTestCard.jpg");
+	glBindTexture(GL_TEXTURE_2D, texFrameBuffer);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	//glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 512, 512, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+	// Second Texture Frame Buffer
+	texFrameBuffer2 = ilutGLLoadImage("tvTestCard.jpg");
+	glBindTexture(GL_TEXTURE_2D, texFrameBuffer2);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	// Frame Buffer Object
+	glGenFramebuffers(1, &frameBuffer);
+	// Bind the framebuffer such that following commands will affect it.
+	glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texFrameBuffer, 0);
+
+	// Depth buffer for FBO
+	glGenRenderbuffers(1, &depthBuffer);
+	glBindRenderbuffer(GL_RENDERBUFFER, depthBuffer);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, 512, 512);
+	// Associate our created depth buffer with the FBO
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthBuffer);
+
+	// Check errors!
+	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	if (status != GL_FRAMEBUFFER_COMPLETE)
+	{
+		fatal_error("Framebuffer not complete");
+	}
+
+	// Post processing frame buffer
+
+	// Create a texture for the frame buffer, with specified filtering, rgba-format and size
+	glGenTextures(1, &texPostProcess);
+	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, texPostProcess);
+	glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+	// Frame Buffer Object
+	glGenFramebuffers(1, &postProcessFrameBuffer);
+	// Bind the framebuffer such that following commands will affect it.
+	glBindFramebuffer(GL_FRAMEBUFFER, postProcessFrameBuffer);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_RECTANGLE_ARB, texPostProcess, 0);
+
+	// Depth buffer for FBO
+	glGenRenderbuffers(1, &depthPostProcess);
+	glBindRenderbuffer(GL_RENDERBUFFER, depthPostProcess);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, w, h);
+	// Associate our created depth buffer with the FBO
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthPostProcess);
+
+	// Check errors!
+	status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	if (status != GL_FRAMEBUFFER_COMPLETE)
+	{
+		fatal_error("Framebuffer not complete");
+	}
+
+
+	// Restore current binding (rendering) to the default frame buffer
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 
@@ -165,9 +234,11 @@ void drawSecurityConsole(const float3 &position, float orientation, const float4
 		make_vector(1.5f, 1.5f, 1.5f));
 
 
-  // insert texture binding here...
-  // draw security screen here...
-  securityConsoleModel->render();
+	// insert texture binding here...
+	// draw security screen here...
+	glBindTexture(GL_TEXTURE_2D, texFrameBuffer2);
+	drawSecurityScreenQuad();
+	securityConsoleModel->render();
 }
 
 
@@ -226,6 +297,7 @@ void display(void)
 {
 	// Update time in PostFX Shader (required by the 'shrooms effect)
 	glUseProgram(postFxShader);	
+
 	setUniformSlow(postFxShader, "time", currentTime);
 	glUseProgram(0);
 
@@ -236,6 +308,32 @@ void display(void)
 	int h = glutGet((GLenum)GLUT_WINDOW_HEIGHT);
 
 	// Insert FBO rendering here
+
+	// bind the frameBuffer as our render target, this means that render
+	// operations will end up affecting the texture 'texFrameBuffer'
+	// that we attached to the frame buffer earlier.
+	glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
+	// We must also set the viewport for the frame buffer to match the
+	// size of the texture, if it is not the same portions may not be
+	// drawn or things may end up outside of the texture (as in not be
+	// visible).
+	glViewport(0, 0, 512, 512);
+	// Clear the color/depth buffers of the current FBO
+	// (i.e. the attached textures and render buffers)
+	glClearColor(0.6, 0.0, 0.0, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	// Render to texture
+	drawScene(shaderProgram, lookAt(securityCamPos, securityCamTarget, up), perspectiveMatrix(45.0f, 1.0f, 1.5f, 100.0f));
+
+	// copy to second texture
+	glBindTexture(GL_TEXTURE_2D, texFrameBuffer2);
+	glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, 512, 512);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	// Bind the default frame buffer
+	glBindFramebuffer(GL_FRAMEBUFFER, postProcessFrameBuffer);
+
 
 	// Set the viewport of the default frame buffer. Since the default frame
 	// buffer is shown in the main window, we use the window size.
@@ -249,7 +347,7 @@ void display(void)
 		sphericalToCartesian(camera_theta, camera_phi, camera_r), 
 		make_vector(0.0f, 0.0f, 0.0f),	
 		up
-	);	
+	);
 	float4x4 projectionMatrix = perspectiveMatrix(
 		45.0f, float(w) / float(h), 0.01f, 300.0f
 	);
@@ -258,8 +356,12 @@ void display(void)
 
 	drawScene(shaderProgram, viewMatrix, projectionMatrix);  
 
+	// Copy post process frame buffer to the screen.
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, postProcessFrameBuffer);
+	glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
-	glUseProgram( 0 );	
+	glUseProgram(0);
 
 	glutSwapBuffers();  // swap front and back buffer. This frame will now be displayed.
 	CHECK_GL_ERROR();
