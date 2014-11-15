@@ -62,6 +62,10 @@ OBJModel *fighterModel = 0;
 OBJModel *boxModel = 0;
 
 
+GLuint shadowMapTexture;
+GLuint shadowMapFBO;
+const int shadowMapResolution = 1024;
+
 void initGL()
 {
 	/* Initialize GLEW; this gives us access to OpenGL Extensions.
@@ -125,6 +129,44 @@ void initGL()
 
 	glEnable(GL_DEPTH_TEST);	// enable Z-buffering 
 	glEnable(GL_CULL_FACE);		// enables backface culling
+
+
+	//************************************
+	// Create shadow Map and frame buffer
+	//************************************
+
+	// Generate and bind our shadow map texture
+	glGenTextures(1, &shadowMapTexture);
+	glBindTexture(GL_TEXTURE_2D, shadowMapTexture);
+
+	// Specify the shadow map texture’s format: GL_DEPTH_COMPONENT[32] is
+	// for depth buffers/textures.
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32,shadowMapResolution, shadowMapResolution, 0,GL_DEPTH_COMPONENT, GL_FLOAT, 0);
+	
+	// We need to setup these; otherwise the texture is illegal as a render target.
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	
+	// Cleanup: unbind the texture again - we’re finished with it for now
+	glBindTexture(GL_TEXTURE_2D, 0);
+	
+	// Generate and bind our shadow map frame buffer
+	glGenFramebuffers(1, &shadowMapFBO);
+	glBindFramebuffer(GL_FRAMEBUFFER, shadowMapFBO);
+	
+	// Bind the depth texture we just created to the FBO’s depth attachment
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,	GL_TEXTURE_2D, shadowMapTexture, 0);
+	
+	// We’re rendering depth only, so make sure we’re not trying to access
+	// the color buffer by setting glDrawBuffer() and glReadBuffer() to GL_NONE
+	glDrawBuffer(GL_NONE);
+	glReadBuffer(GL_NONE);
+	
+	// Cleanup: activate the default frame buffer again
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 
@@ -179,6 +221,8 @@ void drawScene(const float4x4 &viewMatrix, const float4x4 &projectionMatrix, con
 	// Use default shader for rendering
 	glUseProgram( shaderProgram );
 
+	float4x4 lightMatrix = lightProjectionMatrix * lightViewMatrix * inverse(viewMatrix);
+	setUniformSlow(shaderProgram, "lightMatrix", lightMatrix);
 
 	// set the 0th texture unit to serve the 'diffuse_texture' sampler.
 	// Note: this must match the texture unit that OBJModel::render() attempts
@@ -189,6 +233,9 @@ void drawScene(const float4x4 &viewMatrix, const float4x4 &projectionMatrix, con
 	float3 viewSpaceLightPos = transformPoint(viewMatrix, lightPosition); 
 	setUniformSlow(shaderProgram, "viewSpaceLightPosition", viewSpaceLightPos);
 
+	setUniformSlow(shaderProgram, "shadowMapTex", 1);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, shadowMapTexture);
 
 	// draw objects in scene
 	drawShadowCasters( shaderProgram, viewMatrix, projectionMatrix );
@@ -200,6 +247,8 @@ void drawScene(const float4x4 &viewMatrix, const float4x4 &projectionMatrix, con
 
 void drawShadowMap(const float4x4 &viewMatrix, const float4x4 &projectionMatrix)
 {
+	glBindFramebuffer(GL_FRAMEBUFFER, shadowMapFBO),
+	glViewport(0, 0, shadowMapResolution, shadowMapResolution);
 
 	glClearColor( 1.0, 1.0, 1.0, 1.0 );
 	glClearDepth( 1.0 );
@@ -218,6 +267,7 @@ void drawShadowMap(const float4x4 &viewMatrix, const float4x4 &projectionMatrix)
 	// Restore old shader
 	glUseProgram( currentProgram );	
 
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 

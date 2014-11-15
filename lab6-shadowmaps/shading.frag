@@ -16,6 +16,9 @@ uniform int has_diffuse_texture;
 uniform vec3 material_diffuse_color; 
 uniform sampler2D diffuse_texture;
 
+in vec4 shadowMapCoord;
+uniform sampler2D shadowMapTex;
+
 void main() 
 {
 	vec3 diffuseColor = (has_diffuse_texture == 1) ? 
@@ -24,5 +27,7 @@ void main()
 	vec3 posToLight = normalize(viewSpaceLightPosition - viewSpacePosition);
 	float diffuseReflectance = max(0.0, dot(posToLight, normalize(viewSpaceNormal)));
 
-	fragmentColor = vec4(diffuseColor * diffuseReflectance, 1.0);
+	float depth = texture( shadowMapTex, shadowMapCoord.xy / shadowMapCoord.w ).x;
+	float visibility = (depth >= (shadowMapCoord.z/shadowMapCoord.w)) ? 1.0 : 0.0;
+	fragmentColor = vec4(diffuseColor * diffuseReflectance * visibility, 1.0);
 }
