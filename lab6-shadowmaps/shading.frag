@@ -17,7 +17,8 @@ uniform vec3 material_diffuse_color;
 uniform sampler2D diffuse_texture;
 
 in vec4 shadowMapCoord;
-uniform sampler2D shadowMapTex;
+//uniform sampler2D shadowMapTex;
+uniform sampler2DShadow shadowMapTex;
 
 uniform vec3 viewSpaceLightDir;
 
@@ -32,8 +33,9 @@ void main()
 	vec3 posToLight = normalize(viewSpaceLightPosition - viewSpacePosition);
 	float diffuseReflectance = max(0.0, dot(posToLight, normalize(viewSpaceNormal)));
 
-	float depth = texture( shadowMapTex, shadowMapCoord.xy / shadowMapCoord.w ).x;
-	float visibility = (depth >= (shadowMapCoord.z/shadowMapCoord.w)) ? 1.0 : 0.0;
+	//float depth= texture( shadowMapTex, shadowMapCoord.xy/shadowMapCoord.w ).r;
+	//float visibility= (depth>=(shadowMapCoord.z/shadowMapCoord.w)) ? 1.0 : 0.0;
+	float visibility = textureProj( shadowMapTex, shadowMapCoord );
 
 	float angle = dot(posToLight,-viewSpaceLightDir);
 	float spotAttenuation = smoothstep( spotOuterAngle, spotInnerAngle, angle );

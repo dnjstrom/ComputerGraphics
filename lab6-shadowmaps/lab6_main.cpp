@@ -64,7 +64,7 @@ OBJModel *boxModel = 0;
 
 GLuint shadowMapTexture;
 GLuint shadowMapFBO;
-const int shadowMapResolution = 1024;
+const int shadowMapResolution = 128;
 
 void initGL()
 {
@@ -144,8 +144,8 @@ void initGL()
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32,shadowMapResolution, shadowMapResolution, 0,GL_DEPTH_COMPONENT, GL_FLOAT, 0);
 	
 	// We need to setup these; otherwise the texture is illegal as a render target.
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 	//glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
 	//glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
@@ -154,6 +154,9 @@ void initGL()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
 	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, &zeros.x);
 	
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE,	GL_COMPARE_REF_TO_TEXTURE);
+
 	// Cleanup: unbind the texture again - we’re finished with it for now
 	glBindTexture(GL_TEXTURE_2D, 0);
 	
