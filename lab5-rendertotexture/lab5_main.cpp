@@ -296,8 +296,7 @@ void drawScene(GLuint shaderProgram, const float4x4 &view, const float4x4 &proje
 void display(void)
 {
 	// Update time in PostFX Shader (required by the 'shrooms effect)
-	glUseProgram(postFxShader);	
-
+	glUseProgram(postFxShader);
 	setUniformSlow(postFxShader, "time", currentTime);
 	glUseProgram(0);
 
@@ -313,6 +312,7 @@ void display(void)
 	// operations will end up affecting the texture 'texFrameBuffer'
 	// that we attached to the frame buffer earlier.
 	glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
+
 	// We must also set the viewport for the frame buffer to match the
 	// size of the texture, if it is not the same portions may not be
 	// drawn or things may end up outside of the texture (as in not be
@@ -334,7 +334,6 @@ void display(void)
 	// Bind the default frame buffer
 	glBindFramebuffer(GL_FRAMEBUFFER, postProcessFrameBuffer);
 
-
 	// Set the viewport of the default frame buffer. Since the default frame
 	// buffer is shown in the main window, we use the window size.
 
@@ -352,14 +351,25 @@ void display(void)
 		45.0f, float(w) / float(h), 0.01f, 300.0f
 	);
 
-
-
 	drawScene(shaderProgram, viewMatrix, projectionMatrix);  
 
 	// Copy post process frame buffer to the screen.
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-	glBindFramebuffer(GL_READ_FRAMEBUFFER, postProcessFrameBuffer);
-	glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+	//glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+	//glBindFramebuffer(GL_READ_FRAMEBUFFER, postProcessFrameBuffer);
+	//glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+	
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glViewport(0, 0, 512, 512);
+	glClearColor(0.6, 0.0, 0.0, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	glUseProgram(postFxShader);
+	
+	setUniformSlow(postFxShader, "frameBufferTexture", 0);
+	setUniformSlow(postFxShader, "time", currentTime);
+
+	drawFullScreenQuad();
 
 	glUseProgram(0);
 
