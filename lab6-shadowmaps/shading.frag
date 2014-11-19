@@ -19,6 +19,11 @@ uniform sampler2D diffuse_texture;
 in vec4 shadowMapCoord;
 uniform sampler2D shadowMapTex;
 
+uniform vec3 viewSpaceLightDir;
+
+uniform float spotInnerAngle;
+uniform float spotOuterAngle;
+
 void main() 
 {
 	vec3 diffuseColor = (has_diffuse_texture == 1) ? 
@@ -29,5 +34,12 @@ void main()
 
 	float depth = texture( shadowMapTex, shadowMapCoord.xy / shadowMapCoord.w ).x;
 	float visibility = (depth >= (shadowMapCoord.z/shadowMapCoord.w)) ? 1.0 : 0.0;
-	fragmentColor = vec4(diffuseColor * diffuseReflectance * visibility, 1.0);
+
+	float angle = dot(posToLight,-viewSpaceLightDir);
+	float spotAttenuation = smoothstep( spotOuterAngle, spotInnerAngle, angle );
+	
+	//fragmentColor = vec4(diffuseColor * diffuseReflectance * visibility, 1.0);
+
+	float attenuation = diffuseReflectance * visibility * spotAttenuation;
+	fragmentColor = vec4(diffuseColor * attenuation, 1.0);
 }

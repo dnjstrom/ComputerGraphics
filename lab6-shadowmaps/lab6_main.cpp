@@ -147,8 +147,12 @@ void initGL()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	//glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
+	//glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
+	float4 zeros = { 0.0f, 0.0f, 0.0f, 0.0f };
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, &zeros.x);
 	
 	// Cleanup: unbind the texture again - we’re finished with it for now
 	glBindTexture(GL_TEXTURE_2D, 0);
@@ -237,6 +241,12 @@ void drawScene(const float4x4 &viewMatrix, const float4x4 &projectionMatrix, con
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_2D, shadowMapTexture);
 
+	float3 viewSpaceLightDir = transformDirection(viewMatrix, -normalize(lightPosition));
+	setUniformSlow(shaderProgram, "viewSpaceLightDir", viewSpaceLightDir);
+
+	setUniformSlow(shaderProgram, "spotInnerAngle", std::cos(18.0f*3.1415f / 180.0f));
+	setUniformSlow(shaderProgram, "spotOuterAngle", std::cos(22.0f*3.1415f / 180.0f));
+
 	// draw objects in scene
 	drawShadowCasters( shaderProgram, viewMatrix, projectionMatrix );
 	
@@ -254,6 +264,8 @@ void drawShadowMap(const float4x4 &viewMatrix, const float4x4 &projectionMatrix)
 	glClearDepth( 1.0 );
 	glClear( GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT );
 
+	glEnable(GL_POLYGON_OFFSET_FILL);
+	glPolygonOffset(2.5, 10);
 
 	// Get current shader, so we can restore it afterwards. Also, switch to
 	// the simple shader used to draw the shadow map.
@@ -267,6 +279,8 @@ void drawShadowMap(const float4x4 &viewMatrix, const float4x4 &projectionMatrix)
 	// Restore old shader
 	glUseProgram( currentProgram );	
 
+	glDisable(GL_POLYGON_OFFSET_FILL);
+
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
@@ -277,6 +291,7 @@ void display(void)
 	float4x4 lightViewMatrix = lookAt(lightPosition, make_vector(0.0f, 0.0f, 0.0f), up);
 	float4x4 lightProjMatrix = perspectiveMatrix(45.0f, 1.0, 5.0f, 100.0f);
 
+	drawShadowMap(lightViewMatrix, lightProjMatrix);
 
 	int w = glutGet((GLenum)GLUT_WINDOW_WIDTH);
 	int h = glutGet((GLenum)GLUT_WINDOW_HEIGHT);
