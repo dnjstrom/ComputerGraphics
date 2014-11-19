@@ -225,7 +225,11 @@ void drawScene(const float4x4 &viewMatrix, const float4x4 &projectionMatrix, con
 	// Use default shader for rendering
 	glUseProgram( shaderProgram );
 
-	float4x4 lightMatrix = lightProjectionMatrix * lightViewMatrix * inverse(viewMatrix);
+
+	float4x4 t = make_translation(make_vector(0.5f, 0.5f, 0.5f));
+	float4x4 s = make_scale<float4x4>(make_vector(0.5f, 0.5f, 0.5f));
+
+	float4x4 lightMatrix = t * s * lightProjectionMatrix * lightViewMatrix * inverse(viewMatrix);
 	setUniformSlow(shaderProgram, "lightMatrix", lightMatrix);
 
 	// set the 0th texture unit to serve the 'diffuse_texture' sampler.
