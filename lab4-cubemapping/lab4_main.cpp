@@ -183,8 +183,8 @@ void initGL()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 
 	cubeMapTexture = loadCubeMap("cube0.png", "cube1.png",
-		"cube2.png", "cube3.png",
-		"cube4.png", "cube5.png");
+								 "cube2.png", "cube3.png",
+								 "cube4.png", "cube5.png");
 
 	//************************************
 	//			Load Model

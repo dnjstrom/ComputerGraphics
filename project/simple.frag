@@ -21,7 +21,7 @@ uniform vec3 scene_light = vec3(0.6, 0.6, 0.6);
 
 // object specific uniforms, change once per object but are the same for all materials in object.
 uniform float object_alpha; 
-uniform float object_reflectiveness = 0.0;
+uniform float object_reflectiveness;
 
 // matrial properties, changed when material changes.
 uniform float material_shininess;
@@ -31,6 +31,9 @@ uniform vec3 material_specular_color;
 uniform vec3 material_emissive_color; 
 uniform int has_diffuse_texture; 
 uniform sampler2D diffuse_texture;
+
+uniform samplerCube environmentMap;
+uniform mat4 inverseViewNormalMatrix;
 
 
 vec3 calculateAmbient(vec3 ambientLight, vec3 materialAmbient)
@@ -85,10 +88,14 @@ void main()
 
 	vec3 fresnelSpecular = calculateFresnel(specular, normal, directionFromEye);
 
+	vec3 reflectionVector = (inverseViewNormalMatrix * vec4(reflect(directionFromEye, normal), 0.0)).xyz;
+	vec3 envMapSample = texture(environmentMap, reflectionVector).rgb;
+
 	vec3 shading = calculateAmbient(scene_ambient_light, ambient)
 				 + calculateDiffuse(scene_light, diffuse, normal, directionToLight)
 				 + calculateSpecular(scene_light, fresnelSpecular, material_shininess, normal, directionToLight, directionFromEye)
-				 + emissive;
+				 + emissive
+				 + envMapSample * fresnelSpecular * object_reflectiveness;
 
 	fragmentColor = vec4(shading, object_alpha);
 }
