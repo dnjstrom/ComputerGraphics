@@ -59,6 +59,14 @@ bool rightDown = false;
 int prev_x = 0;
 int prev_y = 0;
 
+//*****************************************************************************
+//	Shadow Map variables
+//*****************************************************************************
+GLuint simpleShaderProgram,
+	   shadowMapTexture,
+	   shadowMapFBO;
+const int shadowMapResolution = 128;
+
 
 
 // Helper function to turn spherical coordinates into cartesian (x,y,z)
@@ -134,7 +142,49 @@ void initGL()
 	car = new OBJModel(); 
 	car->load("../scenes/car.obj");
 
+	//************************************
+	// Create shadow Map and frame buffer
+	//************************************
 
+	// Generate and bind our shadow map texture
+	glGenTextures(1, &shadowMapTexture);
+	glBindTexture(GL_TEXTURE_2D, shadowMapTexture);
+
+	// Specify the shadow map texture’s format: GL_DEPTH_COMPONENT[32] is
+	// for depth buffers/textures.
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, shadowMapResolution, shadowMapResolution, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
+
+	// We need to setup these; otherwise the texture is illegal as a render target.
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	//glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
+	//glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
+	float4 zeros = { 0.0f, 0.0f, 0.0f, 0.0f };
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, &zeros.x);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+
+	// Cleanup: unbind the texture again - we’re finished with it for now
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	// Generate and bind our shadow map frame buffer
+	glGenFramebuffers(1, &shadowMapFBO);
+	glBindFramebuffer(GL_FRAMEBUFFER, shadowMapFBO);
+
+	// Bind the depth texture we just created to the FBO’s depth attachment
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, shadowMapTexture, 0);
+
+	// We’re rendering depth only, so make sure we’re not trying to access
+	// the color buffer by setting glDrawBuffer() and glReadBuffer() to GL_NONE
+	glDrawBuffer(GL_NONE);
+	glReadBuffer(GL_NONE);
+
+	// Cleanup: activate the default frame buffer again
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 
