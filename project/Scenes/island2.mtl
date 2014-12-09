@@ -1,0 +1,68 @@
+# Blender MTL File: 'island.blend'
+# Material Count: 7
+
+newmtl 01___Default
+Ns 7.843137
+Ka 0.000000 0.000000 0.000000
+Kd 0.470400 0.470400 0.470400
+Ks 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd E:\Kurser\Computer Graphics\OpenGLTutorials\scenes\maps\islandtexture.tga
+map_Ka E:\\Kurser\\Computer Graphics\\OpenGLTutorials\\scenes\\maps\\islandtexture.tga
+
+newmtl 12___Default
+Ns 7.843137
+Ka 0.000000 0.000000 0.000000
+Kd 0.542720 0.542720 0.542720
+Ks 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd E:\Kurser\Computer Graphics\OpenGLTutorials\scenes\wood.png
+
+newmtl 13___Default
+Ns 7.843137
+Ka 0.000000 0.000000 0.000000
+Kd 0.276080 0.213360 0.178800
+Ks 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+
+newmtl 13___Default.001
+Ns 7.843137
+Ka 0.000000 0.000000 0.000000
+Kd 0.279200 0.147440 0.072160
+Ks 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+
+newmtl 14___Default
+Ns 7.843137
+Ka 0.000000 0.000000 0.000000
+Kd 0.536480 0.683920 0.800000
+Ks 0.828000 0.828000 0.828000
+Ni 1.500000
+d 1.000000
+illum 2
+
+newmtl 15___Default
+Ns 7.843137
+Ka 0.000000 0.000000 0.000000
+Kd 0.445520 0.037680 0.037680
+Ks 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+
+newmtl Material.001
+Ns 96.078431
+Ka 0.000000 0.000000 0.000000
+Kd 0.287071 0.287071 0.287071
+Ks 0.301907 0.301907 0.301907
+Ni 1.000000
+d 1.000000
+illum 2

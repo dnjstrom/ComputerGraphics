@@ -115,7 +115,7 @@ void initGL()
 	// Load the models from disk
 	//*************************************************************************
 	world = new OBJModel(); 
-	world->load("../scenes/island.obj");
+	world->load("../scenes/island2.obj");
 	skybox = new OBJModel();
 	skybox->load("../scenes/skybox.obj");
 	skyboxnight = new OBJModel();

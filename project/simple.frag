@@ -33,20 +33,43 @@ uniform int has_diffuse_texture;
 uniform sampler2D diffuse_texture;
 
 
+vec3 calculateAmbient(vec3 ambientLight, vec3 materialAmbient)
+{
+	return materialAmbient * ambientLight;
+}
+
+vec3 calculateDiffuse(vec3 diffuseLight, vec3 materialDiffuse, vec3 normal, vec3 directionToLight)
+{
+	return diffuseLight * materialDiffuse * max(0, dot(normal, directionToLight));
+}
+
+vec3 calculateSpecular(vec3 specularLight, vec3 materialSpecular, float materialShininess, vec3 normal, vec3 directionToLight, vec3 directionFromEye)
+{
+	vec3 h = normalize(directionToLight - directionFromEye);
+	float normalizationFactor = ((materialShininess + 2.0) / 8.0);
+	return normalizationFactor * specularLight * materialSpecular * pow(max(0, dot(h, normal)), materialShininess);
+}
+
+vec3 calculateFresnel(vec3 materialSpecular, vec3 normal, vec3 directionFromEye)
+{
+	return materialSpecular + (vec3(1.0) - materialSpecular) * pow(clamp(1.0 + dot(directionFromEye, normal), 0.0, 1.0), 5.0);
+}
 
 
 void main() 
 {
 	vec3 diffuse = material_diffuse_color;
 	vec3 specular = material_specular_color;
+
 	// The emissive term allows objects to glow irrespective of illumination, this is just added
 	// to the shading, most materials have an emissive color of 0, in the scene the sky uses an emissive of 1
 	// which allows it a constant and uniform look.
 	vec3 emissive = material_emissive_color;
+
 	// Note: we do not use the per-material ambient. This is because it is more
 	// practical to control on a scene basis, and is usually the same as diffuse.
 	// Feel free to enable it, but then it must be correctly set for _all_ materials (in the .mtl files)!
-	vec3 ambient = material_diffuse_color;//material_ambient_color;
+	vec3 ambient = material_diffuse_color; //material_ambient_color;
 	
 	// if we have a texture we modulate all of the color properties
 	if (has_diffuse_texture == 1)
@@ -56,5 +79,16 @@ void main()
 		emissive *= texture(diffuse_texture, texCoord.xy).xyz; 
 	}
 
-	fragmentColor = vec4(diffuse + emissive, object_alpha);
+	vec3 normal = normalize(viewSpaceNormal);
+	vec3 directionToLight = normalize(viewSpaceLightPosition - viewSpacePosition);
+	vec3 directionFromEye = normalize(viewSpacePosition);
+
+	vec3 fresnelSpecular = calculateFresnel(specular, normal, directionFromEye);
+
+	vec3 shading = calculateAmbient(scene_ambient_light, ambient)
+				 + calculateDiffuse(scene_light, diffuse, normal, directionToLight)
+				 + calculateSpecular(scene_light, fresnelSpecular, material_shininess, normal, directionToLight, directionFromEye)
+				 + emissive;
+
+	fragmentColor = vec4(shading, object_alpha);
 }
