@@ -59,6 +59,10 @@ bool rightDown = false;
 int prev_x = 0;
 int prev_y = 0;
 
+//*****************************************************************************
+//	Cube Mapping
+//*****************************************************************************
+GLuint cubeMapTexture;
 
 
 // Helper function to turn spherical coordinates into cartesian (x,y,z)
@@ -111,6 +115,13 @@ void initGL()
 	glBindFragDataLocation(shaderProgram, 0, "fragmentColor");
 	linkShaderProgram(shaderProgram);
 
+	//************************************
+	//	  Set uniforms
+	//************************************
+
+	glUseProgram(shaderProgram);
+	setUniformSlow(shaderProgram, "environmentMap", 1);
+
 	//*************************************************************************
 	// Load the models from disk
 	//*************************************************************************
@@ -134,7 +145,12 @@ void initGL()
 	car = new OBJModel(); 
 	car->load("../scenes/car.obj");
 
-
+	//*************************************************************************
+	// Cube Mapping
+	//*************************************************************************
+	cubeMapTexture = loadCubeMap("cube0.png", "cube1.png",
+		"cube2.png", "cube3.png",
+		"cube4.png", "cube5.png");
 }
 
 
@@ -151,9 +167,12 @@ void drawModel(OBJModel *model, const float4x4 &modelMatrix)
 void drawShadowCasters()
 {
 	drawModel(world, make_identity<float4x4>());
-	setUniformSlow(shaderProgram, "object_reflectiveness", 0.5f); 
+	setUniformSlow(shaderProgram, "object_reflectiveness", 0.3f);
+
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, cubeMapTexture);
 	drawModel(car, make_translation(make_vector(0.0f, 0.0f, 0.0f))); 
-	setUniformSlow(shaderProgram, "object_reflectiveness", 0.0f); 
+	setUniformSlow(shaderProgram, "object_reflectiveness", 0.0f);
 }
 
 
@@ -184,6 +203,7 @@ void drawScene(void)
 	setUniformSlow(shaderProgram, "viewMatrix", viewMatrix);
 	setUniformSlow(shaderProgram, "projectionMatrix", projectionMatrix);
 	setUniformSlow(shaderProgram, "lightpos", lightPosition); 
+	setUniformSlow(shaderProgram, "inverseViewNormalMatrix", transpose(viewMatrix));
 
 	drawModel(water, make_translation(make_vector(0.0f, -6.0f, 0.0f)));
 	drawShadowCasters();
