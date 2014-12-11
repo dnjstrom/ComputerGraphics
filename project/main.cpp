@@ -26,7 +26,10 @@ using namespace chag;
 bool paused = false;				// Tells us wether sun animation is paused
 float currentTime = 0.0f;		// Tells us the current time
 GLuint shaderProgram;
-const float3 up = {0.0f, 1.0f, 0.0f};
+const float3 up = { 0.0f, 1.0f, 0.0f };
+
+// Shader used to draw the shadow map (and some other simple objects)
+GLuint simpleShaderProgram;
 
 //*****************************************************************************
 //	OBJ Model declarations
@@ -115,6 +118,11 @@ void initGL()
 	glBindFragDataLocation(shaderProgram, 0, "fragmentColor");
 	linkShaderProgram(shaderProgram);
 
+	simpleShaderProgram = loadShaderProgram("shadow_map.vert", "shadow_map.frag");
+	glBindAttribLocation(simpleShaderProgram, 0, "position");
+	glBindFragDataLocation(simpleShaderProgram, 0, "fragmentColor");
+	linkShaderProgram(simpleShaderProgram);
+
 	//************************************
 	//	  Set uniforms
 	//************************************
@@ -153,10 +161,9 @@ void initGL()
 		"cube4.png", "cube5.png");
 }
 
-
-void drawModel(OBJModel *model, const float4x4 &modelMatrix)
+void drawModel(GLuint shader, OBJModel *model, const float4x4 &modelMatrix)
 {
-	setUniformSlow(shaderProgram, "modelMatrix", modelMatrix); 
+	setUniformSlow(shader, "modelMatrix", modelMatrix);
 	model->render();
 }
 
@@ -164,15 +171,15 @@ void drawModel(OBJModel *model, const float4x4 &modelMatrix)
 * In this function, add all scene elements that should cast shadow, that way
 * there is only one draw call to each of these, as this function is called twice.
 */
-void drawShadowCasters()
+void drawShadowCasters(GLuint shader)
 {
-	drawModel(world, make_identity<float4x4>());
-	setUniformSlow(shaderProgram, "object_reflectiveness", 0.3f);
+	drawModel(shader, world, make_identity<float4x4>());
+	setUniformSlow(shader, "object_reflectiveness", 0.3f);
 
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, cubeMapTexture);
-	drawModel(car, make_translation(make_vector(0.0f, 0.0f, 0.0f))); 
-	setUniformSlow(shaderProgram, "object_reflectiveness", 0.0f);
+	drawModel(shader, car, make_translation(make_vector(0.0f, 0.0f, 0.0f)));
+	setUniformSlow(shader, "object_reflectiveness", 0.0f);
 }
 
 
@@ -181,8 +188,7 @@ void drawScene(void)
 	glEnable(GL_DEPTH_TEST);	// enable Z-buffering 
 
 	// enable back face culling.
-	glEnable(GL_CULL_FACE);	
-
+	glEnable(GL_CULL_FACE);
 
 	//*************************************************************************
 	// Render the scene from the cameras viewpoint, to the default framebuffer
@@ -200,20 +206,21 @@ void drawScene(void)
 	float3 camera_up = make_vector(0.0f, 1.0f, 0.0f);
 	float4x4 viewMatrix = lookAt(camera_position, camera_lookAt, camera_up);
 	float4x4 projectionMatrix = perspectiveMatrix(45.0f, float(w) / float(h), 0.1f, 1000.0f);
+
 	setUniformSlow(shaderProgram, "viewMatrix", viewMatrix);
 	setUniformSlow(shaderProgram, "projectionMatrix", projectionMatrix);
 	setUniformSlow(shaderProgram, "lightpos", lightPosition); 
 	setUniformSlow(shaderProgram, "inverseViewNormalMatrix", transpose(viewMatrix));
 
-	drawModel(water, make_translation(make_vector(0.0f, -6.0f, 0.0f)));
-	drawShadowCasters();
+	drawModel(shaderProgram, water, make_translation(make_vector(0.0f, -6.0f, 0.0f)));
+	drawShadowCasters(shaderProgram);
 
 	glDepthMask(GL_FALSE);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	drawModel(skyboxnight, make_identity<float4x4>());
+	drawModel(shaderProgram, skyboxnight, make_identity<float4x4>());
 	setUniformSlow(shaderProgram, "object_alpha", max<float>(0.0f, cosf((currentTime / 20.0f) * 2.0f * M_PI))); 
-	drawModel(skybox, make_identity<float4x4>());
+	drawModel(shaderProgram, skybox, make_identity<float4x4>());
 	setUniformSlow(shaderProgram, "object_alpha", 1.0f); 
 	glDisable(GL_BLEND);
 	glDepthMask(GL_TRUE); 
@@ -221,11 +228,45 @@ void drawScene(void)
 	glUseProgram( 0 );	
 }
 
+void drawShadowMap(const float4x4 &viewMatrix, const float4x4 &projectionMatrix)
+{
+
+	glClearColor(1.0, 1.0, 1.0, 1.0);
+	glClearDepth(1.0);
+	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+
+
+	// Get current shader, so we can restore it afterwards. Also, switch to
+	// the simple shader used to draw the shadow map.
+	GLint currentProgram;
+	glGetIntegerv(GL_CURRENT_PROGRAM, &currentProgram);
+	glUseProgram(simpleShaderProgram);
+
+	setUniformSlow(simpleShaderProgram, "viewMatrix", viewMatrix);
+	setUniformSlow(simpleShaderProgram, "projectionMatrix", projectionMatrix);
+
+	// draw shadow casters
+	drawShadowCasters(simpleShaderProgram);
+
+	// Restore old shader
+	glUseProgram(currentProgram);
+
+}
+
 
 
 void display(void)
 {
-	drawScene();
+	//*************************************************************************
+	// Render the scene from the lightsource viewpoint, to the shadow map frame buffer
+	//*************************************************************************
+	// construct light matrices
+	float4x4 lightViewMatrix = lookAt(lightPosition, make_vector(0.0f, 0.0f, 0.0f), up);
+	float4x4 lightProjMatrix = perspectiveMatrix(45.0f, 1.0, 5.0f, 100.0f);
+
+	drawShadowMap(lightViewMatrix, lightProjMatrix);
+
+	//drawScene();
 	glutSwapBuffers();  // swap front and back buffer. This frame will now be displayed.
 	CHECK_GL_ERROR();
 }

@@ -4,11 +4,13 @@ in vec3		position;
 in vec3		colorIn;
 in	vec2	texCoordIn;	// incoming texcoord from the texcoord array
 in  vec3	normalIn;
+
 out vec3	viewSpacePosition; 
 out vec3	viewSpaceNormal; 
 out vec3	viewSpaceLightPosition; 
 out vec4	color;
 out	vec2	texCoord;	// outgoing interpolated texcoord to fragshader
+
 uniform mat4 modelMatrix; 
 uniform mat4 viewMatrix; 
 uniform mat4 projectionMatrix; 
