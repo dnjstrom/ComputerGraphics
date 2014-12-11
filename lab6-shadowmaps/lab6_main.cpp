@@ -201,7 +201,7 @@ void setLightingMatrices(GLuint shaderProgram, const float4x4 &viewMatrix, const
 void drawShadowCasters(GLuint shaderProgram, const float4x4 &viewMatrix, const float4x4 &projectionMatrix)
 {
 	// Draw "room"
-	setLightingMatrices(shaderProgram, viewMatrix, projectionMatrix, roomModelMatrix);
+	setLightingMatrices(shaderProgram, viewMatrix, projectionMatrix, boxModel);
 	boxModel->render();
 
 	// Draw space ship
