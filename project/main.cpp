@@ -67,6 +67,13 @@ int prev_y = 0;
 //*****************************************************************************
 GLuint cubeMapTexture;
 
+//*****************************************************************************
+//	Shadow Mapping
+//*****************************************************************************
+GLuint shadowMapTexture;
+GLuint shadowMapFBO;
+const int shadowMapResolution = 1024 * 5;
+
 
 // Helper function to turn spherical coordinates into cartesian (x,y,z)
 float3 sphericalToCartesian(float theta, float phi, float r)
@@ -159,6 +166,49 @@ void initGL()
 	cubeMapTexture = loadCubeMap("cube0.png", "cube1.png",
 		"cube2.png", "cube3.png",
 		"cube4.png", "cube5.png");
+
+	//*************************************************************************
+	// Shadow Map
+	//*************************************************************************
+
+	// Generate and bind our shadow map texture
+	glGenTextures(1, &shadowMapTexture);
+	glBindTexture(GL_TEXTURE_2D, shadowMapTexture);
+	// Specify the shadow map texture’s format: GL_DEPTH_COMPONENT[32] is
+	// for depth buffers/textures.
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32,
+		shadowMapResolution, shadowMapResolution, 0,
+		GL_DEPTH_COMPONENT, GL_FLOAT, 0
+		);
+	// We need to setup these; otherwise the texture is illegal as a
+	// render target.
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+	float4 ones = { 1.0f, 1.0f, 1.0f, 1.0f };
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, &ones.x);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+
+	// Cleanup: unbind the texture again - we’re finished with it for now
+	glBindTexture(GL_TEXTURE_2D, 0);
+	// Generate and bind our shadow map frame buffer
+	glGenFramebuffers(1, &shadowMapFBO);
+	glBindFramebuffer(GL_FRAMEBUFFER, shadowMapFBO);
+	// Bind the depth texture we just created to the FBO’s depth attachment
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+		GL_TEXTURE_2D, shadowMapTexture, 0);
+	// We’re rendering depth only, so make sure we’re not trying to access
+	// the color buffer by setting glDrawBuffer() and glReadBuffer() to GL_NONE
+	glDrawBuffer(GL_NONE);
+	glReadBuffer(GL_NONE);
+	// Cleanup: activate the default frame buffer again
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void drawModel(GLuint shader, OBJModel *model, const float4x4 &modelMatrix)
@@ -183,7 +233,7 @@ void drawShadowCasters(GLuint shader)
 }
 
 
-void drawScene(void)
+void drawScene(const float4x4 &lightViewMatrix, const float4x4 &lightProjectionMatrix)
 {
 	glEnable(GL_DEPTH_TEST);	// enable Z-buffering 
 
@@ -212,6 +262,16 @@ void drawScene(void)
 	setUniformSlow(shaderProgram, "lightpos", lightPosition); 
 	setUniformSlow(shaderProgram, "inverseViewNormalMatrix", transpose(viewMatrix));
 
+	float4x4 t = make_translation(make_vector(0.5f, 0.5f, 0.5f));
+	float4x4 s = make_scale<float4x4>(make_vector(0.5f, 0.5f, 0.5f));
+
+	float4x4 lightMatrix = t * s * lightProjectionMatrix * lightViewMatrix * inverse(viewMatrix);
+	setUniformSlow(shaderProgram, "lightMatrix", lightMatrix);
+
+	setUniformSlow(shaderProgram, "shadowMapTex", 2);
+	glActiveTexture(GL_TEXTURE2);
+	glBindTexture(GL_TEXTURE_2D, shadowMapTexture);
+
 	drawModel(shaderProgram, water, make_translation(make_vector(0.0f, -6.0f, 0.0f)));
 	drawShadowCasters(shaderProgram);
 
@@ -230,11 +290,15 @@ void drawScene(void)
 
 void drawShadowMap(const float4x4 &viewMatrix, const float4x4 &projectionMatrix)
 {
+	glBindFramebuffer(GL_FRAMEBUFFER, shadowMapFBO),
+	glViewport(0, 0, shadowMapResolution, shadowMapResolution);
 
 	glClearColor(1.0, 1.0, 1.0, 1.0);
 	glClearDepth(1.0);
 	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
+	glEnable(GL_POLYGON_OFFSET_FILL);
+	glPolygonOffset(2.5, 10);
 
 	// Get current shader, so we can restore it afterwards. Also, switch to
 	// the simple shader used to draw the shadow map.
@@ -247,9 +311,12 @@ void drawShadowMap(const float4x4 &viewMatrix, const float4x4 &projectionMatrix)
 
 	// draw shadow casters
 	drawShadowCasters(simpleShaderProgram);
+	
+	glDisable(GL_POLYGON_OFFSET_FILL);
 
 	// Restore old shader
 	glUseProgram(currentProgram);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 }
 
@@ -262,11 +329,12 @@ void display(void)
 	//*************************************************************************
 	// construct light matrices
 	float4x4 lightViewMatrix = lookAt(lightPosition, make_vector(0.0f, 0.0f, 0.0f), up);
-	float4x4 lightProjMatrix = perspectiveMatrix(45.0f, 1.0, 5.0f, 100.0f);
+	float4x4 lightProjMatrix = perspectiveMatrix(30.0f, 1.0, 350.0f, 600.0f);
 
 	drawShadowMap(lightViewMatrix, lightProjMatrix);
 
-	//drawScene();
+	drawScene(lightViewMatrix, lightProjMatrix);
+
 	glutSwapBuffers();  // swap front and back buffer. This frame will now be displayed.
 	CHECK_GL_ERROR();
 }

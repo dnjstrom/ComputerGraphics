@@ -35,6 +35,9 @@ uniform sampler2D diffuse_texture;
 uniform samplerCube environmentMap;
 uniform mat4 inverseViewNormalMatrix;
 
+in vec4 shadowMapCoord;
+//uniform sampler2D shadowMapTex;
+uniform sampler2DShadow shadowMapTex;
 
 vec3 calculateAmbient(vec3 ambientLight, vec3 materialAmbient)
 {
@@ -91,9 +94,11 @@ void main()
 	vec3 reflectionVector = (inverseViewNormalMatrix * vec4(reflect(directionFromEye, normal), 0.0)).xyz;
 	vec3 envMapSample = texture(environmentMap, reflectionVector).rgb;
 
+	float visibility = textureProj( shadowMapTex, shadowMapCoord );
+
 	vec3 shading = calculateAmbient(scene_ambient_light, ambient)
-				 + calculateDiffuse(scene_light, diffuse, normal, directionToLight)
-				 + calculateSpecular(scene_light, fresnelSpecular, material_shininess, normal, directionToLight, directionFromEye)
+				 + visibility * (calculateDiffuse(scene_light, diffuse, normal, directionToLight)
+				 + calculateSpecular(scene_light, fresnelSpecular, material_shininess, normal, directionToLight, directionFromEye))
 				 + emissive
 				 + envMapSample * fresnelSpecular * object_reflectiveness;
 
