@@ -74,6 +74,17 @@ GLuint shadowMapTexture;
 GLuint shadowMapFBO;
 const int shadowMapResolution = 1024 * 5;
 
+//*****************************************************************************
+//	Bloom effect
+//*****************************************************************************
+GLuint postFxShader, cutoffShader, verticalShader, horizontalShader;
+GLuint texPostProcess, postProcessFrameBuffer, depthPostProcess;
+GLuint texBloom, bloomFrameBuffer, depthBloom;
+GLuint texHorizontal, horizontalFrameBuffer, depthHorizontal;
+GLuint texVertical, verticalFrameBuffer, depthVertical;
+
+
+void drawFullScreenQuad();
 
 // Helper function to turn spherical coordinates into cartesian (x,y,z)
 float3 sphericalToCartesian(float theta, float phi, float r)
@@ -130,12 +141,47 @@ void initGL()
 	glBindFragDataLocation(simpleShaderProgram, 0, "fragmentColor");
 	linkShaderProgram(simpleShaderProgram);
 
+	// load and set up post processing shader
+	postFxShader = loadShaderProgram("postFx.vert", "postFx.frag");
+
+	glBindAttribLocation(postFxShader, 0, "position");
+	glBindFragDataLocation(postFxShader, 0, "fragmentColor");
+
+	linkShaderProgram(postFxShader);
+
+	// load and set up cutoff shader
+	cutoffShader = loadShaderProgram("postFx.vert", "cutoff.frag");
+
+	glBindAttribLocation(cutoffShader, 0, "position");
+	glBindFragDataLocation(cutoffShader, 0, "fragmentColor");
+
+	linkShaderProgram(cutoffShader);
+
+
+	horizontalShader = loadShaderProgram("postFx.vert", "horizontal_blur.frag");
+
+	glBindAttribLocation(horizontalShader, 0, "position");
+	glBindFragDataLocation(horizontalShader, 0, "fragmentColor");
+
+	linkShaderProgram(horizontalShader);
+
+	verticalShader = loadShaderProgram("postFx.vert", "vertical_blur.frag");
+
+	glBindAttribLocation(verticalShader, 0, "position");
+	glBindFragDataLocation(verticalShader, 0, "fragmentColor");
+
+	linkShaderProgram(verticalShader);
+
 	//************************************
 	//	  Set uniforms
 	//************************************
 
 	glUseProgram(shaderProgram);
 	setUniformSlow(shaderProgram, "environmentMap", 1);
+
+
+	int w = glutGet((GLenum)GLUT_WINDOW_WIDTH);
+	int h = glutGet((GLenum)GLUT_WINDOW_HEIGHT);
 
 	//*************************************************************************
 	// Load the models from disk
@@ -195,6 +241,97 @@ void initGL()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
 
+
+
+	// Post processing frame buffer
+
+	// Create a texture for the frame buffer, with specified filtering, rgba-format and size
+	glGenTextures(1, &texPostProcess);
+	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, texPostProcess);
+	glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+	// Frame Buffer Object
+	glGenFramebuffers(1, &postProcessFrameBuffer);
+	// Bind the framebuffer such that following commands will affect it.
+	glBindFramebuffer(GL_FRAMEBUFFER, postProcessFrameBuffer);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_RECTANGLE_ARB, texPostProcess, 0);
+
+	// Depth buffer for FBO
+	glGenRenderbuffers(1, &depthPostProcess);
+	glBindRenderbuffer(GL_RENDERBUFFER, depthPostProcess);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, w, h);
+	// Associate our created depth buffer with the FBO
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthPostProcess);
+
+
+	// Bloomframe buffer
+
+	// Create a texture for the frame buffer, with specified filtering, rgba-format and size
+	glGenTextures(1, &texBloom);
+	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, texBloom);
+	glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+	// Frame Buffer Object
+	glGenFramebuffers(1, &bloomFrameBuffer);
+	// Bind the framebuffer such that following commands will affect it.
+	glBindFramebuffer(GL_FRAMEBUFFER, bloomFrameBuffer);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_RECTANGLE_ARB, texBloom, 0);
+
+	// Depth buffer for FBO
+	glGenRenderbuffers(1, &depthBloom);
+	glBindRenderbuffer(GL_RENDERBUFFER, depthBloom);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, w, h);
+	// Associate our created depth buffer with the FBO
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthBloom);
+
+
+
+	// Create a texture for the frame buffer, with specified filtering, rgba-format and size
+	glGenTextures(1, &texHorizontal);
+	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, texHorizontal);
+	glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+	// Frame Buffer Object
+	glGenFramebuffers(1, &horizontalFrameBuffer);
+	// Bind the framebuffer such that following commands will affect it.
+	glBindFramebuffer(GL_FRAMEBUFFER, horizontalFrameBuffer);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_RECTANGLE_ARB, texHorizontal, 0);
+
+	// Depth buffer for FBO
+	glGenRenderbuffers(1, &depthHorizontal);
+	glBindRenderbuffer(GL_RENDERBUFFER, depthHorizontal);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, w, h);
+	// Associate our created depth buffer with the FBO
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthHorizontal);
+
+
+	// Create a texture for the frame buffer, with specified filtering, rgba-format and size
+	glGenTextures(1, &texVertical);
+	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, texVertical);
+	glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+	// Frame Buffer Object
+	glGenFramebuffers(1, &verticalFrameBuffer);
+	// Bind the framebuffer such that following commands will affect it.
+	glBindFramebuffer(GL_FRAMEBUFFER, verticalFrameBuffer);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_RECTANGLE_ARB, texVertical, 0);
+
+	// Depth buffer for FBO
+	glGenRenderbuffers(1, &depthVertical);
+	glBindRenderbuffer(GL_RENDERBUFFER, depthVertical);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, w, h);
+	// Associate our created depth buffer with the FBO
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthVertical);
+
+
 	// Cleanup: unbind the texture again - we’re finished with it for now
 	glBindTexture(GL_TEXTURE_2D, 0);
 	// Generate and bind our shadow map frame buffer
@@ -207,6 +344,8 @@ void initGL()
 	// the color buffer by setting glDrawBuffer() and glReadBuffer() to GL_NONE
 	glDrawBuffer(GL_NONE);
 	glReadBuffer(GL_NONE);
+
+
 	// Cleanup: activate the default frame buffer again
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
@@ -333,7 +472,74 @@ void display(void)
 
 	drawShadowMap(lightViewMatrix, lightProjMatrix);
 
+	int w = glutGet((GLenum)GLUT_WINDOW_WIDTH);
+	int h = glutGet((GLenum)GLUT_WINDOW_HEIGHT);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, postProcessFrameBuffer);
+	glViewport(0, 0, w, h);
+	glClearColor(0.0, 0.0, 0.0, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
 	drawScene(lightViewMatrix, lightProjMatrix);
+
+	//glBindFramebuffer(GL_FRAMEBUFFER, bloomFrameBuffer);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glViewport(0, 0, w, h);
+	glClearColor(0.0, 0.0, 0.0, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	glUseProgram(cutoffShader);
+
+	glActiveTexture(GL_TEXTURE3);
+	setUniformSlow(cutoffShader, "frameBufferTexture", 3);
+	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, texPostProcess);
+	setUniformSlow(cutoffShader, "time", currentTime);
+
+	drawFullScreenQuad();
+
+	glBindFramebuffer(GL_FRAMEBUFFER, horizontalFrameBuffer);
+	glViewport(0, 0, w, h);
+	glClearColor(0.0, 0.0, 0.0, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glUseProgram(horizontalShader);
+
+	setUniformSlow(horizontalShader, "frameBufferTexture", 0);
+	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, texBloom);
+	setUniformSlow(horizontalShader, "time", currentTime);
+
+	drawFullScreenQuad();
+
+	glBindFramebuffer(GL_FRAMEBUFFER, verticalFrameBuffer);
+	glViewport(0, 0, w, h);
+	glClearColor(0.0, 0.0, 0.0, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glUseProgram(verticalShader);
+
+	setUniformSlow(verticalShader, "frameBufferTexture", 0);
+	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, texHorizontal);
+	setUniformSlow(verticalShader, "time", currentTime);
+
+	drawFullScreenQuad();
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glViewport(0, 0, w, h);
+	glClearColor(0.0, 0.0, 0.0, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	glUseProgram(postFxShader);
+
+	setUniformSlow(postFxShader, "frameBufferTexture", 0);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, texPostProcess);
+
+	setUniformSlow(postFxShader, "bloomTexture", 1);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, texVertical);
+	setUniformSlow(postFxShader, "time", currentTime);
+
+	drawFullScreenQuad();
+
+	glUseProgram(0);
 
 	glutSwapBuffers();  // swap front and back buffer. This frame will now be displayed.
 	CHECK_GL_ERROR();
@@ -445,6 +651,28 @@ void idle( void )
 	// Uncommenting the line above tells glut that the window 
 	// needs to be redisplayed again. This forces the display to be redrawn
 	// over and over again. 
+}
+
+void drawFullScreenQuad()
+{
+	static GLuint vertexArrayObject = 0; 
+	static int nofVertices = 4; 
+
+	// do this initialization first time the function is called... somewhat dodgy, but works for demonstration purposes
+	if (vertexArrayObject == 0)
+	{
+		glGenVertexArrays(1, &vertexArrayObject);
+		static const float2 positions[] = {
+				{ -1.0f, -1.0f },
+				{ 1.0f, -1.0f },
+				{ 1.0f, 1.0f },
+				{ -1.0f, 1.0f },
+		};
+		createAddAttribBuffer(vertexArrayObject, positions, sizeof(positions), 0, 2, GL_FLOAT);
+	}
+
+	glBindVertexArray(vertexArrayObject);
+	glDrawArrays(GL_QUADS, 0, nofVertices);
 }
 
 int main(int argc, char *argv[])

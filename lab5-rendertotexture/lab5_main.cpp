@@ -69,7 +69,6 @@ void drawSecurityScreenQuad();
 // Used to draw a full-screen quad, used in post processing effects.
 void drawFullScreenQuad();
 
-
 GLuint texFrameBuffer, texFrameBuffer2, frameBuffer, depthBuffer;
 GLuint texPostProcess, postProcessFrameBuffer, depthPostProcess;
 GLuint texBloom, bloomFrameBuffer, depthBloom, verticalShader, horizontalShader;
@@ -433,8 +432,6 @@ void display(void)
 	glClearColor(0.6, 0.0, 0.0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-
-
 	// Render to texture
 	drawScene(shaderProgram, lookAt(securityCamPos, securityCamTarget, up), perspectiveMatrix(45.0f, 1.0f, 1.5f, 100.0f));
 
@@ -747,7 +744,7 @@ void drawSecurityScreenQuad()
 
 void drawFullScreenQuad()
 {
-	static GLuint vertexArrayObject = 0; 
+	static GLuint vertexArrayObject = 0;
 	static int nofVertices = 4; 
 
   // do this initialization first time the function is called... somewhat dodgy, but works for demonstration purposes
