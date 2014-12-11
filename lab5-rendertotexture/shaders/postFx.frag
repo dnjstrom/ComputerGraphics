@@ -6,6 +6,7 @@
 // required by GLSL spec Sect 4.5.3 (though nvidia does not, amd does)
 precision highp float;
 
+uniform sampler2DRect bloomTexture;
 uniform sampler2DRect frameBufferTexture;
 uniform sampler2DRect blurredFrameBufferTexture;
 uniform float time;
@@ -27,6 +28,8 @@ vec2 mushrooms(vec2 inCoord);
  */
 vec3 blur(vec2 coord);
 
+vec3 bloom(vec2 coord);
+
 /**
  * Simply returns the luminance of the input sample color.
  */
@@ -45,14 +48,17 @@ void main()
 	//fragmentColor = vec4(toSepiaTone(texture(frameBufferTexture, gl_FragCoord.xy).xyz), 1.0);
 
 	//fragmentColor = texture(frameBufferTexture, mushrooms(gl_FragCoord.xy));
+	//fragmentColor = texture(bloomTexture, gl_FragCoord.xy);
 	
+	fragmentColor = vec4(bloom(gl_FragCoord.xy), 1.0);
+
 	//fragmentColor = vec4(blur(gl_FragCoord.xy), 1.0);
 	//fragmentColor = vec4(grayscale(texture(frameBufferTexture, gl_FragCoord.xy).xyz), 1.0);
 
 	// all at once
 	//fragmentColor = vec4(toSepiaTone(blur(mushrooms(gl_FragCoord.xy))), 1.0);
 
-	fragmentColor = vec4(mosaic(gl_FragCoord.xy), 1.0);
+	//fragmentColor = vec4(mosaic(gl_FragCoord.xy), 1.0);
 }
 
 
@@ -94,6 +100,11 @@ vec3 blur(vec2 coord)
 	result += 0.125 * texture(frameBufferTexture, coord + vec2(0, -1)).xyz;
 
 	return result;
+}
+
+vec3 bloom(vec2 coord)
+{
+	return texture(frameBufferTexture, coord).xyz + texture(bloomTexture, coord).xyz;
 }
 
 vec3 grayscale(vec3 sample)

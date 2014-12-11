@@ -25,6 +25,7 @@ using namespace chag;
 
 GLuint shaderProgram;
 GLuint postFxShader;
+GLuint cutoffShader;
 
 
 bool leftDown = false;
@@ -71,8 +72,9 @@ void drawFullScreenQuad();
 
 GLuint texFrameBuffer, texFrameBuffer2, frameBuffer, depthBuffer;
 GLuint texPostProcess, postProcessFrameBuffer, depthPostProcess;
-
-
+GLuint texBloom, bloomFrameBuffer, depthBloom, verticalShader, horizontalShader;
+GLuint texHorizontal, horizontalFrameBuffer, depthHorizontal;
+GLuint texVertical, verticalFrameBuffer, depthVertical;
 
 void initGL()
 {
@@ -140,6 +142,29 @@ void initGL()
 
 	linkShaderProgram(postFxShader);
 
+	// load and set up cutoff shader
+	cutoffShader = loadShaderProgram("shaders/postFx.vert", "shaders/cutoff.frag");
+
+	glBindAttribLocation(cutoffShader, 0, "position");
+	glBindFragDataLocation(cutoffShader, 0, "fragmentColor");
+
+	linkShaderProgram(cutoffShader);
+
+
+	horizontalShader = loadShaderProgram("shaders/postFx.vert", "shaders/horizontal_blur.frag");
+
+	glBindAttribLocation(horizontalShader, 0, "position");
+	glBindFragDataLocation(horizontalShader, 0, "fragmentColor");
+
+	linkShaderProgram(horizontalShader);
+
+	verticalShader = loadShaderProgram("shaders/postFx.vert", "shaders/vertical_blur.frag");
+
+	glBindAttribLocation(verticalShader, 0, "position");
+	glBindFragDataLocation(verticalShader, 0, "fragmentColor");
+
+	linkShaderProgram(verticalShader);
+
 	// create the Frame Buffer Object (FBO) that we render to, and later
 	// use as a texture.
 	int w = glutGet( (GLenum)GLUT_WINDOW_WIDTH );
@@ -201,6 +226,91 @@ void initGL()
 	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, w, h);
 	// Associate our created depth buffer with the FBO
 	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthPostProcess);
+
+	// Check errors!
+	status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	if (status != GL_FRAMEBUFFER_COMPLETE)
+	{
+		fatal_error("Framebuffer not complete");
+	}
+
+
+	// Bloomframe buffer
+
+	// Create a texture for the frame buffer, with specified filtering, rgba-format and size
+	glGenTextures(1, &texBloom);
+	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, texBloom);
+	glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+	// Frame Buffer Object
+	glGenFramebuffers(1, &bloomFrameBuffer);
+	// Bind the framebuffer such that following commands will affect it.
+	glBindFramebuffer(GL_FRAMEBUFFER, bloomFrameBuffer);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_RECTANGLE_ARB, texBloom, 0);
+
+	// Depth buffer for FBO
+	glGenRenderbuffers(1, &depthBloom);
+	glBindRenderbuffer(GL_RENDERBUFFER, depthBloom);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, w, h);
+	// Associate our created depth buffer with the FBO
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthBloom);
+
+	// Check errors!
+	status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	if (status != GL_FRAMEBUFFER_COMPLETE)
+	{
+		fatal_error("Framebuffer not complete");
+	}
+
+
+	// Create a texture for the frame buffer, with specified filtering, rgba-format and size
+	glGenTextures(1, &texHorizontal);
+	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, texHorizontal);
+	glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+	// Frame Buffer Object
+	glGenFramebuffers(1, &horizontalFrameBuffer);
+	// Bind the framebuffer such that following commands will affect it.
+	glBindFramebuffer(GL_FRAMEBUFFER, horizontalFrameBuffer);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_RECTANGLE_ARB, texHorizontal, 0);
+
+	// Depth buffer for FBO
+	glGenRenderbuffers(1, &depthHorizontal);
+	glBindRenderbuffer(GL_RENDERBUFFER, depthHorizontal);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, w, h);
+	// Associate our created depth buffer with the FBO
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthHorizontal);
+
+	// Check errors!
+	status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	if (status != GL_FRAMEBUFFER_COMPLETE)
+	{
+		fatal_error("Framebuffer not complete");
+	}
+
+	// Create a texture for the frame buffer, with specified filtering, rgba-format and size
+	glGenTextures(1, &texVertical);
+	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, texVertical);
+	glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+	// Frame Buffer Object
+	glGenFramebuffers(1, &verticalFrameBuffer);
+	// Bind the framebuffer such that following commands will affect it.
+	glBindFramebuffer(GL_FRAMEBUFFER, verticalFrameBuffer);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_RECTANGLE_ARB, texVertical, 0);
+
+	// Depth buffer for FBO
+	glGenRenderbuffers(1, &depthVertical);
+	glBindRenderbuffer(GL_RENDERBUFFER, depthVertical);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, w, h);
+	// Associate our created depth buffer with the FBO
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthVertical);
 
 	// Check errors!
 	status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
@@ -323,6 +433,8 @@ void display(void)
 	glClearColor(0.6, 0.0, 0.0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+
+
 	// Render to texture
 	drawScene(shaderProgram, lookAt(securityCamPos, securityCamTarget, up), perspectiveMatrix(45.0f, 1.0f, 1.5f, 100.0f));
 
@@ -358,15 +470,57 @@ void display(void)
 	//glBindFramebuffer(GL_READ_FRAMEBUFFER, postProcessFrameBuffer);
 	//glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
+	glBindFramebuffer(GL_FRAMEBUFFER, bloomFrameBuffer);
+	glViewport(0, 0, 512, 512);
+	glClearColor(0.0, 0.0, 0.0, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	
+	glUseProgram(cutoffShader);
+	
+	setUniformSlow(cutoffShader, "frameBufferTexture", 0);
+	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, texPostProcess);
+	setUniformSlow(cutoffShader, "time", currentTime);
+
+	drawFullScreenQuad();
+
+	glBindFramebuffer(GL_FRAMEBUFFER, horizontalFrameBuffer);
+	glViewport(0, 0, 512, 512);
+	glClearColor(0.0, 0.0, 0.0, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glUseProgram(horizontalShader);
+
+	setUniformSlow(horizontalShader, "frameBufferTexture", 0);
+	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, texBloom);
+	setUniformSlow(horizontalShader, "time", currentTime);
+
+	drawFullScreenQuad();
+	
+	glBindFramebuffer(GL_FRAMEBUFFER, verticalFrameBuffer);
+	glViewport(0, 0, 512, 512);
+	glClearColor(0.0, 0.0, 0.0, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glUseProgram(verticalShader);
+
+	setUniformSlow(verticalShader, "frameBufferTexture", 0);
+	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, texHorizontal);
+	setUniformSlow(verticalShader, "time", currentTime);
+
+	drawFullScreenQuad();
+
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glViewport(0, 0, 512, 512);
-	glClearColor(0.6, 0.0, 0.0, 1.0);
+	glClearColor(0.0, 0.0, 0.0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glUseProgram(postFxShader);
-	
+
 	setUniformSlow(postFxShader, "frameBufferTexture", 0);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, texPostProcess);
+
+	setUniformSlow(postFxShader, "bloomTexture", 1);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, texVertical);
 	setUniformSlow(postFxShader, "time", currentTime);
 
 	drawFullScreenQuad();
