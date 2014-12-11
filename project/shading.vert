@@ -17,19 +17,21 @@ out vec4 shadowTexCoord;
 uniform mat4 modelMatrix; 
 uniform mat4 viewMatrix; 
 uniform mat4 projectionMatrix; 
-uniform vec3 lightpos; 
+uniform vec3 lightpos;
+
+uniform mat4 normalMatrix;	 
+uniform mat4 modelViewMatrix;
+uniform mat4 modelViewProjectionMatrix; 
 
 
 void main() 
 {
-	mat4 modelViewMatrix = viewMatrix * modelMatrix; 
-	mat4 modelViewProjectionMatrix = projectionMatrix * modelViewMatrix; 
+	
 	///////////////////////////////////////////////////////////////////////////
 	// The normal matrix should really be the inverse transpose of the 
 	// modelViewMatrix, but that doesn't compile on current drivers.
 	// Just using the modelView matrix works fine, as long as it does not
 	// contain any nonuniform scaling. 
-	mat4 normalMatrix = modelViewMatrix; //inverse(transpose(modelViewMatrix));
 	///////////////////////////////////////////////////////////////////////////
 	color = vec4(colorIn,1); 
 	texCoord = texCoordIn; 

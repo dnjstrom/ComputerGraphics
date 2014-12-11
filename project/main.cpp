@@ -211,7 +211,6 @@ void initGL()
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-
 void drawModel(OBJModel *model, const float4x4 &modelMatrix)
 {
 	setUniformSlow(shaderProgram, "modelMatrix", modelMatrix); 
@@ -224,12 +223,21 @@ void drawModel(OBJModel *model, const float4x4 &modelMatrix)
 */
 void drawShadowCasters(GLuint shaderProgram, const float4x4 &viewMatrix, const float4x4 &projectionMatrix)
 {
-	drawModel(world, make_identity<float4x4>());
+	float4x4 modelMatrix = make_translation(make_vector(0.0f, 0.0f, 0.0f));
+	float4x4 modelViewMatrix = viewMatrix * modelMatrix;
+	float4x4 modelViewProjectionMatrix = projectionMatrix * modelViewMatrix;
+	float4x4 normalMatrix = transpose(inverse(modelViewMatrix));
+	// Update the matrices used in the vertex shader
+	setUniformSlow(shaderProgram, "modelViewMatrix", modelViewMatrix);
+	setUniformSlow(shaderProgram, "modelViewProjectionMatrix", modelViewProjectionMatrix);
+	setUniformSlow(shaderProgram, "normalMatrix", normalMatrix);
+
+	drawModel(world, modelMatrix);
 	setUniformSlow(shaderProgram, "object_reflectiveness", 0.3f);
 
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, cubeMapTexture);
-	drawModel(car, make_translation(make_vector(0.0f, 0.0f, 0.0f))); 
+	drawModel(car, modelMatrix);
 	setUniformSlow(shaderProgram, "object_reflectiveness", 0.0f);
 }
 
